@@ -12,19 +12,27 @@
 
 enum class TaskType {Explicit, Implicit};
 enum class TaskState {Created, Running, Suspended, Canceled, Completed};
-enum class TSP {task_create,
-                task_complete,
-                task_yield,
-                task_wait,
-                task_group_end,
-                implicit_barrier,
-                explicit_barrier,
-                target_region_create,
-                target_update,
-                target_enter_data,
-                target_exit_data,
-                omp_target_memcpy,
-                omp_target_memcpy_rect}; 
+enum class TSPType {task_create,
+                    task_complete,
+                    task_yield,
+                    task_wait,
+                    task_group_end,
+                    implicit_barrier,
+                    explicit_barrier,
+                    target_region_create,
+                    target_update,
+                    target_enter_data,
+                    target_exit_data,
+                    omp_target_memcpy,
+                    omp_target_memcpy_rect}; 
+
+
+typedef struct TaskSchedulingPoint
+{
+  std::string tsp_type;
+  uint64_t thread_id;
+  double time; 
+} TSP; 
 
 class Task
 {
@@ -45,7 +53,7 @@ class Task
     // A list of tasks that this task depends on 
     std::vector<Task *> dependency_parents;
     // A series of task scheduling points experienced by this task
-    std::vector<int> tsps;
+    std::vector<TSP> tsps;
 
   public:
     Task(uint64_t task_id, 
@@ -60,7 +68,16 @@ class Task
       initial(false),
       codeptr_ra(codeptr_ra),
       encountering_threads({thread_id})
-      {}
+      {
+        TSP creation_tsp;
+        struct timeval tv;
+        struct timezone tz;
+        gettimeofday(&tv, &tz); 
+        creation_tsp.time = (double)tv.tv_sec;
+        creation_tsp.tsp_type = "create";
+        creation_tsp.thread_id = thread_id;
+        tsps.push_back(creation_tsp); 
+      }
 
     // Accessors
     std::vector<Task*> get_children() {
@@ -87,12 +104,19 @@ class Task
       return this->codeptr_ra; 
     }
 
+    std::string get_codeptr_ra_as_string() {
+      std::ostringstream oss;
+      oss << codeptr_ra;
+      std::string codeptr_ra_str(oss.str());
+      return codeptr_ra_str;
+    }
+
     bool is_initial() {
       return initial; 
     }
 
     // Mutators 
-    void add_tsp(ompt_task_status_t tsp) {
+    void add_tsp(TSP tsp) {
       boost::lock_guard<boost::mutex> lock(this->mtx);
       this->tsps.push_back(tsp);   
     }
@@ -111,7 +135,16 @@ class Task
       boost::lock_guard<boost::mutex> lock(this->mtx);
       this->initial = true;         
     }                                  
-                                       
+
+    void print_tsps() {
+      printf("Task ID: %lu\n", this->id); 
+      for (auto e : tsps) {
+        printf("Type: %s, Thread: %lu\n", e.tsp_type.c_str(), e.thread_id);
+      }
+
+    }
+
+
     void print(int verbosity = 0) {
       boost::lock_guard<boost::mutex> lock(this->mtx);
       if (verbosity == 0) {
@@ -150,6 +183,8 @@ class Task
         } else {
           printf("\t- Initial Task: False\n");
         }
+        // Print return address of task region implementation
+        printf("\t- codeptr_ra = %p\n", codeptr_ra); 
      
         if (verbosity > 1) {
           // Print the series of encountering thread IDs
@@ -161,7 +196,7 @@ class Task
           // Print the series of task scheduling points this task experience
           printf("\t- Task Scheduling Points: ");
           for (auto e : tsps) {
-            printf("%d, ", e);
+            printf("Type: %s, Thread: %lu\n", e.tsp_type.c_str(), e.thread_id);
           }
           printf("\n"); 
           // Print tasks that have this task as a dependency

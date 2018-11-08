@@ -2,6 +2,7 @@
 #define CALLBACKS_H
 
 #include "Task.hpp"
+#include <sys/time.h>
 
 // For getting thread ID in callbacks 
 typedef struct my_ompt_data{
@@ -382,28 +383,48 @@ on_ompt_callback_task_schedule(
     ompt_task_status_t prior_task_status,
     ompt_data_t *second_task_data)
 {
+  // First, determine task IDs and thread involved
+  uint64_t first_task_id = first_task_data->value;
+  uint64_t second_task_id = second_task_data->value;
+  uint64_t thread_id = get_own_data(ompt_get_thread_data());
+  TSP tsp; 
+  tsp.thread_id = thread_id;
+  struct timeval tv;
+  struct timezone tz;
+  gettimeofday(&tv, &tz); 
+  tsp.time = (double)tv.tv_sec;
+
   // Got error when using "ompt_task_switch" instead of "4" (See pg. 440 of TR7) 
   // Using "ompt_task_others" works though (see pg. 400 of TR4)
   if (prior_task_status == ompt_task_others) { 
     n_task_schedule_others++;
+    tsp.tsp_type = "other";
   }
   else if (prior_task_status == ompt_task_cancel) {
     n_task_schedule_cancel++;
+    tsp.tsp_type = "cancel";
   } 
   else if (prior_task_status == ompt_task_yield) {
     n_task_schedule_yield++;
+    tsp.tsp_type = "yield";
   }
   else if (prior_task_status == ompt_task_complete) {
     n_task_schedule_complete++;
-    uint64_t task_id = first_task_data->value;
-    uint64_t thread_id = get_own_data(ompt_get_thread_data()); 
-    //printf("Task completed. Task = %lu, Thread = %lu\n", task_id, thread_id);
+    tsp.tsp_type = "complete";
   }
   else {
 #ifdef DEBUG
     printf("\t- Prior task status unrecognized: %u\n", prior_task_status); 
 #endif
   }
+
+  //// Lookup task object and update its TSP sequence
+  //auto id_to_task = &(tool_data_ptr->id_to_task);
+  //auto task_search = id_to_task->find(first_task_id);
+  //if (task_search != id_to_task->end()) {
+  //  task_search->second->add_tsp(tsp);
+  //}
+
 }
 
 
@@ -415,12 +436,16 @@ void handle_taskwait_dependences(uint64_t task_id, tool_data_t* tool_data) {
   auto dependences = &(tool_data->dependences);
   
   auto task_search = id_to_task->find(task_id);
+#ifdef DEBUG
   printf("Handling taskwait dependences for task %lu\n", task_id);
+#endif
   if (task_search != id_to_task->end()) {
     Task* t = task_search->second;
     for (auto child : t->get_children()) {
       uint64_t child_task_id = child->get_id();
+#ifdef DEBUG
       printf("Has child task %lu\n", child_task_id);
+#endif
 
       auto dep_search = dependences->find( child_task_id );
       if (dep_search != dependences->end()) {
@@ -480,7 +505,9 @@ on_ompt_callback_sync_region(
           n_task_sync_region_end_taskwait++;
           uint64_t task_id = task_data->value;
           uint64_t thread_id = get_own_data(ompt_get_thread_data()); 
-          //printf("Taskwait end. Task = %lu, Thread = %lu\n", task_id, thread_id);
+#ifdef DEBUG
+          printf("Taskwait end. Task = %lu, Thread = %lu\n", task_id, thread_id);
+#endif
           break;
         }
           break;
