@@ -10,7 +10,7 @@ LDFLAGS+= -L/usr/tce/packages/boost/boost-1.66.0-mvapich2-2.2-intel-18.0.1/lib
 LD_LIBRARY_FLAGS= -L/. 
 LD_LIBRARY_FLAGS+= -Wl,-rpath=/usr/tce/packages/intel/intel-16.0.3/tbb/lib/intel64/gcc4.4
 
-LIBS= -lboost_system -lboost_thread -ltbb
+LIBS= -lboost_system -lboost_thread -ltbb -lbfd
 
 all: dependency_tracker 
 	

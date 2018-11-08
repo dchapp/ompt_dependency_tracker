@@ -1,5 +1,9 @@
 #include <iostream>
 #include <vector> 
+#include <array> 
+#include <string>
+#include <cstdio>
+#include <cstdlib> 
 #include <unordered_map>
 #include <csignal> 
 #include <inttypes.h>
@@ -14,10 +18,11 @@
 
 #define COARSE_GRAINED_LOCKING
 
-//#define DEBUG
+//#define PRINT_TSPS
+#define DEBUG
 #define BUILD_DAG_ON_FINALIZE
-//#define PRINT_SUMMARY_TASK_REGIONS 
-//#define PRINT_SUMMARY_PARALLEL_REGIONS
+#define PRINT_SUMMARY_TASK_REGIONS 
+#define PRINT_SUMMARY_PARALLEL_REGIONS
 //#define PRINT_EDGES 
 
 #include "OMPT_helpers.hpp" 
@@ -73,6 +78,8 @@ counter_int n_task_sync_region_wait_end_taskgroup;
 static tool_data_t* tool_data_ptr;
 
 #include "callbacks.hpp"
+
+#include "AddressTranslation.hpp" 
 
 void add_parallel_region_vertex(ParallelRegion * pr) {
   // Synchronize access to the dag and the id_to_vertex map
@@ -227,6 +234,24 @@ void signal_handler(int signum) {
 }
 
 
+void generate_suspicious_task_report() 
+{
+  //boost::lock_guard<boost::mutex> lock(tool_data_ptr->global_mtx); 
+#ifdef DEBUG
+  printf("\nGenerating suspicious task report...\n");
+#endif
+  // For right now, just assume task 2 is suspicious
+  uint64_t task_id = 2;
+  Task* suspicious_task = tool_data_ptr->id_to_task.find(task_id)->second;
+
+  // Get its codeptr_ra as a string
+  std::string codeptr_ra_str = suspicious_task->get_codeptr_ra_as_string();
+  std::cout << "Suspicious task codeptr_ra: " << codeptr_ra_str << std::endl;  
+  void* address_list[1] = { (void*)suspicious_task->get_codeptr_ra() };
+  char** result = backtraceSymbols(address_list, 1);
+  std::cout << "Result: " << result[0] << std::endl; 
+}
+
 
 int ompt_initialize(ompt_function_lookup_t lookup,
                     ompt_data_t * tool_data)
@@ -288,6 +313,14 @@ int ompt_initialize(ompt_function_lookup_t lookup,
 
 void ompt_finalize(ompt_data_t *tool_data)
 {
+#ifdef PRINT_TSPS
+  printf("Tasks:\n");
+  for (auto e : tool_data_ptr->id_to_task) {
+    e.second->print_tsps(); 
+    printf("\n"); 
+  }
+#endif
+
 #ifdef DEBUG
   printf("\n\n\n");
   printf("=================================================================\n");
@@ -329,6 +362,8 @@ void ompt_finalize(ompt_data_t *tool_data)
 #endif 
   write_dag(task_dag); 
 #endif
+
+  generate_suspicious_task_report();
 
   // Delete tool data 
   tool_data_ptr->id_to_parallel_region.clear();
