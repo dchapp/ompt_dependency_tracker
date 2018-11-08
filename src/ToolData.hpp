@@ -45,9 +45,6 @@ typedef struct tool_data {
   // Don't add edges until shutdown or signal
   dag_t dag;
   boost::shared_mutex dag_mtx; 
-
-  
-
 } tool_data_t; 
 
 

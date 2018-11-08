@@ -6,10 +6,9 @@
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
-
 //#include <VertexWriters.hpp> 
 /* A vertex writer that only displays the task or parallel region ID on an 
- * ellipse-shaped vertex 
+ * ellipse-shaped vertex
  */
 template <class vertex_id_map>
 class vertex_writer
@@ -249,5 +248,14 @@ const vprops_t construct_vprops(VertexType vtype,
                        codeptr_ra_str};
   return vp; 
 }
+
+
+
+
+
+
+
+
+
 
 #endif // DEPENDENCY_DAG_H

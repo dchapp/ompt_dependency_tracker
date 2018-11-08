@@ -1,3 +1,6 @@
+#ifndef ADDRESS_TRANSLATION_H
+#define ADDRESS_TRANSLATION_H
+
 /* All code in this file taken from: 
  * https://oroboro.com/printing-stack-traces-file-line/
  */
@@ -254,4 +257,4 @@ char** backtraceSymbols( void* const* addrList, int numAddr )
    return final;
 }
 
-
+#endif // ADDRESS_TRANSLATION_H
